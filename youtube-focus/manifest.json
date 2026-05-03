@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "YouTube Stamina Focus",
-  "version": "1.6.11",
+  "version": "1.6.13",
   "description": "Daily limits on YouTube — optional buffering, resolution ceiling (144p–1080p), or aggressive lowest-quality stick.",
   "permissions": ["storage"],
   "host_permissions": ["https://www.youtube.com/*"],

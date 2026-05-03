@@ -51,6 +51,12 @@
   /** @type {ReturnType<typeof setInterval> | null} */
   let pollIntervalId = null;
 
+  /** Set after SPA: YouTube resumes hidden `#movie_player` / mini-player on `/` · `/feed` seconds later */
+  /** @type {ReturnType<typeof setTimeout>[] } */
+  let homeStalePauseTimeoutIds = [];
+  /** Last poll snapshot: whether we were on `/watch` or `/shorts` */
+  let wasOnTrackedWatchRoute = false;
+
   const THUMB_ORIG_SRC = 'data-yt-focus-thumb-orig-src';
   const THUMB_ORIG_SRCSET = 'data-yt-focus-thumb-orig-srcset';
   /** @type {MutationObserver | null} */
@@ -73,10 +79,16 @@
     }
   }
 
+  function teardownVideoShellGuards() {
+    for (const id of homeStalePauseTimeoutIds) clearTimeout(id);
+    homeStalePauseTimeoutIds = [];
+  }
+
   function teardown() {
     if (watchIntervalId) clearInterval(watchIntervalId);
     if (pollIntervalId) clearInterval(pollIntervalId);
     if (saveTimer) clearTimeout(saveTimer);
+    teardownVideoShellGuards();
     disconnectThumbnailObserver();
     disconnectCommentsGateObserver();
     removeCommentsGate();
@@ -760,6 +772,54 @@
     frictionEpoch++;
   }
 
+  /**
+   * Homepage (logo) / default feed — distinct from other browse: YouTube often resurrects the hidden
+   * main player or mini-player audio a few hundred ms to a few seconds after SPA swap.
+   */
+  function isLikelyYoutubeHomeBrowse() {
+    const p = location.pathname;
+    return p === '/' || p === '/feed';
+  }
+
+  function pauseNonPausedVideosUnderRoot(root) {
+    if (!root) return;
+    for (const v of root.querySelectorAll('video')) {
+      if (v instanceof HTMLVideoElement && !v.paused) {
+        try {
+          v.pause();
+        } catch (_) {
+          /* ignore */
+        }
+      }
+    }
+  }
+
+  /**
+   * YouTube keeps `#movie_player` attached off-route; the hidden main `<video>` can keep decoding audio
+   * after SPA navigation. On home/feed, pause `ytd-miniplayer` too (watch → logo is the common leak).
+   */
+  function pauseStaleMoviePlayerVideosIfBrowseSurface() {
+    if (isTrackedPage()) return;
+    pauseNonPausedVideosUnderRoot(document.getElementById('movie_player'));
+    if (isLikelyYoutubeHomeBrowse()) {
+      pauseNonPausedVideosUnderRoot(document.querySelector('ytd-miniplayer'));
+    }
+  }
+
+  function scheduleStaleHomeAudioPasses() {
+    teardownVideoShellGuards();
+    const delays = [120, 380, 950, 2300, 4500];
+    for (const ms of delays) {
+      const id = setTimeout(() => {
+        if (!isExtensionCtxAlive()) return;
+        if (isTrackedPage()) return;
+        if (!isLikelyYoutubeHomeBrowse()) return;
+        pauseStaleMoviePlayerVideosIfBrowseSurface();
+      }, ms);
+      homeStalePauseTimeoutIds.push(id);
+    }
+  }
+
   /** @returns {boolean} true if `video` is still in-document (YouTube hides off-route players instead of destroying them). */
   function isVideoMounted(video) {
     try {
@@ -777,12 +837,14 @@
     await runBufferCountdown(playbackBufferOverlayMessage(), playbackBufferSeconds(), {
       shouldCancel: () =>
         frictionEpoch !== epochStart ||
+        hookedVideo !== video ||
         !extensionApplying() ||
         !isTrackedPage() ||
         !isVideoMounted(video),
     });
     if (
       frictionEpoch !== epochStart ||
+      hookedVideo !== video ||
       !extensionApplying() ||
       !isTrackedPage() ||
       !isVideoMounted(video)
@@ -792,6 +854,16 @@
     }
     frictionBypass = true;
     try {
+      await Promise.resolve();
+      if (
+        frictionEpoch !== epochStart ||
+        hookedVideo !== video ||
+        !extensionApplying() ||
+        !isTrackedPage() ||
+        !isVideoMounted(video)
+      ) {
+        return;
+      }
       await video.play();
     } catch (_) {
       /* autoplay / gesture policies */
@@ -854,12 +926,21 @@
     rollStatsIfNewDay();
     syncLimitFrictionToDom();
 
+    const hadTrackedRoute = wasOnTrackedWatchRoute;
+
     if (!isTrackedPage()) {
       detachPlaybackHooks();
+      pauseStaleMoviePlayerVideosIfBrowseSurface();
+      if (hadTrackedRoute && isLikelyYoutubeHomeBrowse()) {
+        scheduleStaleHomeAudioPasses();
+      }
     } else {
+      teardownVideoShellGuards();
       const vHook = getMainVideo();
       if (vHook) bindVideo(vHook);
     }
+
+    wasOnTrackedWatchRoute = isTrackedPage();
 
     const sig = getVisitSignature();
     if (!sig) {
@@ -898,8 +979,10 @@
     const dt = Math.min(45, (now - lastTickMs) / 1000);
     lastTickMs = now;
 
-    if (!isTrackedPage()) detachPlaybackHooks();
-    else {
+    if (!isTrackedPage()) {
+      detachPlaybackHooks();
+      pauseStaleMoviePlayerVideosIfBrowseSurface();
+    } else {
       const vHook = getMainVideo();
       if (vHook) bindVideo(vHook);
     }
@@ -944,6 +1027,7 @@
   });
 
   hydrateFromStorage(() => {
+    wasOnTrackedWatchRoute = isTrackedPage();
     syncLimitFrictionToDom();
     tickWatchTime();
     requestAnimationFrame(() => {
