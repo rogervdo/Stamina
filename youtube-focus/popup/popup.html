@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>YouTube Stamina Focus</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header class="header">
+      <h1>YouTube Stamina Focus</h1>
+      <p class="tagline">Soft limits — friction, not blocks</p>
+    </header>
+
+    <section class="panel">
+      <label class="toggle">
+        <input type="checkbox" id="enabled" />
+        <span>Extension on</span>
+      </label>
+    </section>
+
+    <section class="panel">
+      <h2>Good faith break</h2>
+      <p class="hint" id="good-faith-help">
+        Pause every extension effect for 15 minutes. Type <strong>Good Faith</strong> in the box below.
+      </p>
+      <div class="good-faith-row">
+        <input
+          type="text"
+          id="good-faith-input"
+          class="good-faith-input"
+          placeholder="Good Faith"
+          aria-describedby="good-faith-help"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button type="button" id="good-faith-snooze" class="btn secondary good-faith-btn">Pause 15 min</button>
+      </div>
+      <p id="good-faith-status" class="hint good-faith-status"></p>
+    </section>
+
+    <section class="panel">
+      <h2>Limit type</h2>
+      <label class="radio-row">
+        <input type="radio" name="limitType" value="time" id="limit-time" />
+        <span>Minutes watched per day</span>
+      </label>
+      <label class="radio-row">
+        <input type="radio" name="limitType" value="videos" id="limit-videos" />
+        <span>Videos watched per day</span>
+      </label>
+      <label class="radio-row">
+        <input type="radio" name="limitType" value="both" id="limit-both" />
+        <span>Both — friction after either cap</span>
+      </label>
+      <div class="field">
+        <label for="timeLimit">Daily minute cap</label>
+        <input type="number" id="timeLimit" min="1" max="1440" step="1" />
+      </div>
+      <div class="field">
+        <label for="videoLimit">Daily video cap</label>
+        <input type="number" id="videoLimit" min="1" max="500" step="1" />
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>After limit</h2>
+      <label class="toggle">
+        <input type="checkbox" id="useBufferFriction" />
+        <span>Fake buffering before play/resume</span>
+      </label>
+      <div class="field">
+        <label for="bufferSeconds">Playback buffer delay (seconds)</label>
+        <input type="number" id="bufferSeconds" min="3" max="120" step="1" />
+      </div>
+      <div class="field">
+        <label for="commentUnlockBufferSeconds">Comment unlock delay (seconds)</label>
+        <input type="number" id="commentUnlockBufferSeconds" min="3" max="120" step="1" />
+      </div>
+      <p class="hint">
+        Comment unlock uses its own timer — independent of fake buffering before play.
+      </p>
+      <div class="field">
+        <label for="playbackBufferMessage">Message during playback buffer</label>
+        <textarea id="playbackBufferMessage" rows="3" maxlength="280" spellcheck="true"></textarea>
+      </div>
+      <p class="hint">Leave blank to use the built-in message. Max 280 characters; saves when you leave this field.</p>
+
+      <label class="toggle mtoggle">
+        <input type="checkbox" id="stickToLowestQuality" />
+        <span>Stick to lowest quality (~144p)</span>
+      </label>
+      <p class="hint">
+        Aggressive: always pushes YouTube toward the coarsest rung (often 144p). Ignores the resolution menu below and will fight the in-player quality picker.
+      </p>
+
+      <label class="toggle mtoggle">
+        <input type="checkbox" id="capMaxPlaybackQuality" />
+        <span>Cap maximum playback resolution</span>
+      </label>
+      <p class="hint">
+        Same enforcement as “stick to lowest,” but locks to the sharpest rung still at or below the menu (e.g. 720p cap → stays on 720p when available, not a lower manual pick). Turn off “stick to lowest” to use this.
+      </p>
+      <div class="field">
+        <label for="qualityCap">Maximum resolution (ceiling)</label>
+        <select id="qualityCap">
+          <option value="tiny">144p</option>
+          <option value="small">240p</option>
+          <option value="medium">360p</option>
+          <option value="large">480p</option>
+          <option value="hd720">720p</option>
+          <option value="hd1080">1080p</option>
+        </select>
+      </div>
+
+      <label class="toggle mtoggle">
+        <input type="checkbox" id="lowerBrowseThumbnails" />
+        <span>Lower browse thumbnail resolution when over limit</span>
+      </label>
+      <p class="hint">
+        Applies on home, subscriptions, search, and channel grids (not the watch page). Loads stills only up to the tier you pick.
+      </p>
+      <div class="field">
+        <label for="browseThumbnailTier">Thumbnail still maximum</label>
+        <select id="browseThumbnailTier">
+          <option value="default">120×90 (default)</option>
+          <option value="mqdefault">320×180 (mq)</option>
+          <option value="hqdefault">480×360 (hq)</option>
+          <option value="hq720">720px wide (hq720)</option>
+          <option value="sddefault">640×480 (sd)</option>
+        </select>
+      </div>
+    </section>
+
+    <section class="panel stats">
+      <h2>Today</h2>
+      <p id="stats-summary" class="stats-summary">—</p>
+      <p id="stats-limit" class="stats-limit"></p>
+      <button type="button" id="reset-today" class="btn secondary">Reset today’s counters</button>
+    </section>
+
+    <p id="status" class="status" aria-live="polite"></p>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

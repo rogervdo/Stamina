@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "YouTube Stamina Focus",
+  "version": "1.6.11",
+  "description": "Daily limits on YouTube — optional buffering, resolution ceiling (144p–1080p), or aggressive lowest-quality stick.",
+  "permissions": ["storage"],
+  "host_permissions": ["https://www.youtube.com/*"],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "YouTube Stamina Focus",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/*"],
+      "js": ["content/content.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "matches": ["https://www.youtube.com/*"],
+      "resources": ["content/page-quality-hook.js"]
+    }
+  ]
+}
